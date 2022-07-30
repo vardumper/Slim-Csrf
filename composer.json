@@ -1,5 +1,5 @@
 {
-    "name": "slim/csrf",
+    "name": "vardumper/slim-csrf",
     "type": "library",
     "description": "Slim Framework 4 CSRF protection PSR-15 middleware",
     "keywords": ["slim","framework","middleware","csrf"],
