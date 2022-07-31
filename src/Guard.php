@@ -44,6 +44,7 @@ use function substr;
 use function uniqid;
 
 use const PHP_SESSION_ACTIVE;
+use Symfony\Component\HttpFoundation\Session\Session;
 
 class Guard implements MiddlewareInterface
 {
@@ -61,7 +62,7 @@ class Guard implements MiddlewareInterface
      * implement ArrayAccess and should implement Countable and Iterator
      * if storage limit enforcement is required.
      *
-     * @var array|ArrayAccess
+     * @var array|Session|ArrayAccess
      */
     protected $storage;
 
@@ -132,7 +133,7 @@ class Guard implements MiddlewareInterface
     }
 
     /**
-     * @param  array|ArrayAccess|null $storage
+     * @param  array|Session|ArrayAccess|null $storage
      *
      * @return self
      *
@@ -140,6 +141,11 @@ class Guard implements MiddlewareInterface
      */
     public function setStorage(&$storage = null): self
     {
+        if ($storage instanceof Session) {
+            $this->storage = $storage;
+            return $this;
+        }
+        
         if (
             is_array($storage)
             || ($storage instanceof ArrayAccess && $storage instanceof Countable && $storage instanceof Iterator)
@@ -239,11 +245,19 @@ class Guard implements MiddlewareInterface
      */
     public function validateToken(string $name, string $value): bool
     {
-        if (!isset($this->storage[$name])) {
-            return false;
+        if ($this->storage instanceof Session) {
+            if (!$this->storage->has($name)) {
+                return false;
+            }
+            
+            $token = $this->storage->get($name);
+        } else {
+            if (!isset($this->storage[$name])) {
+                return false;
+            }
+    
+            $token = $this->storage[$name];
         }
-
-        $token = $this->storage[$name];
 
         return hash_equals($token, $this->unmaskToken($value));
     }
@@ -347,7 +361,11 @@ class Guard implements MiddlewareInterface
      */
     protected function saveTokenToStorage(string $name, string $value): void
     {
-        $this->storage[$name] = $value;
+        if ($this->storage instanceof Session) {
+            $this->storage->set($name, $value);
+        } else {
+            $this->storage[$name] = $value;
+        }
     }
 
     /**
@@ -359,8 +377,12 @@ class Guard implements MiddlewareInterface
      */
     public function removeTokenFromStorage(string $name): void
     {
-        $this->storage[$name] = '';
-        unset($this->storage[$name]);
+        if ($this->storage instanceof Session) {
+            $this->storage->remove($name);
+        } else {
+            $this->storage[$name] = '';
+            unset($this->storage[$name]);
+        }
     }
 
     /**
